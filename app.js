@@ -305,10 +305,7 @@ const app = {
       document.getElementById('sceneVideoPreview').style.display = 'flex';
       this.setEl('sceneVideoName', file.name);
     };
-    this._showVideoMenu(
-      () => this._videoInput(true, onFile),
-      () => this._videoInput(false, onFile)
-    );
+    this._videoInput(false, onFile);
   },
 
   removeSceneVideo() {

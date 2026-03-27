@@ -4,33 +4,15 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
   <title>Incident Reporting</title>
-  <link rel="stylesheet" href="styles.css?v=5">
+  <link rel="stylesheet" href="styles.css?v=6">
 </head>
 <body>
 
   <!-- Offline Banner -->
   <div class="offline-banner" id="offlineBanner">You are offline — data will be saved locally</div>
 
-  <!-- Header -->
-  <div class="header">
-    <svg class="home-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/><polyline points="9 22 9 12 15 12 15 22"/></svg>
-    <h1 id="headerTitle">Dashboard</h1>
-    <div class="header-icons">
-      <button class="header-icon-btn">
-        <svg viewBox="0 0 24 24" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><path d="M9.09 9a3 3 0 0 1 5.83 1c0 2-3 3-3 3"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg>
-      </button>
-      <button class="header-icon-btn avatar" id="driverInitials">SR</button>
-      <button class="header-icon-btn no-bg">
-        <svg viewBox="0 0 24 24" stroke-linecap="round" stroke-linejoin="round"><path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9"/><path d="M13.73 21a2 2 0 0 1-3.46 0"/></svg>
-      </button>
-      <button class="header-icon-btn no-bg">
-        <svg viewBox="0 0 24 24" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12.55a11 11 0 0 1 14.08 0"/><path d="M1.42 9a16 16 0 0 1 21.16 0"/><path d="M8.53 16.11a6 6 0 0 1 6.95 0"/><line x1="12" y1="20" x2="12.01" y2="20"/></svg>
-      </button>
-    </div>
-  </div>
-
   <!-- ==================== SCREEN 1: Dashboard ==================== -->
-  <div class="screen active" id="screen-dashboard">
+  <div class="screen" id="screen-dashboard">
     <div class="alert-banner">
       <button class="close-btn">&times;</button>
       <div class="alert-header">
@@ -82,34 +64,10 @@
       </div>
     </div>
 
-    <div style="flex:1"></div>
-
-    <div class="bottom-nav">
-      <div class="nav-item active">
-        <svg viewBox="0 0 24 24" stroke-linecap="round" stroke-linejoin="round"><path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/><polyline points="9 22 9 12 15 12 15 22"/></svg>
-        Dashboard
-      </div>
-      <div class="nav-item">
-        <svg viewBox="0 0 24 24" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>
-        History
-      </div>
-      <div class="nav-item">
-        <svg viewBox="0 0 24 24" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg>
-        Messages
-      </div>
-      <div class="nav-item">
-        <svg viewBox="0 0 24 24" stroke-linecap="round" stroke-linejoin="round"><path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z"/><circle cx="12" cy="10" r="3"/></svg>
-        Trips
-      </div>
-      <div class="nav-item">
-        <svg viewBox="0 0 24 24" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="1"/><circle cx="19" cy="12" r="1"/><circle cx="5" cy="12" r="1"/></svg>
-        More
-      </div>
-    </div>
   </div>
 
   <!-- ==================== SCREEN 2: Incidents List ==================== -->
-  <div class="screen" id="screen-incidents">
+  <div class="screen active" id="screen-incidents">
     <h2 class="section-title">Current Incidents</h2>
     <p class="section-subtitle">Reports that are in progress</p>
 
@@ -1185,6 +1143,6 @@
     </div>
   </div>
 
-  <script src="app.js?v=5"></script>
+  <script src="app.js?v=6"></script>
 </body>
 </html>
