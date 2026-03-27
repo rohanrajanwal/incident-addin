@@ -150,6 +150,7 @@ body {
   display: flex;
   min-height: 0;
   overflow-y: auto;
+  padding-bottom: 80px;
 }
 
 @keyframes fadeIn {
@@ -1100,9 +1101,13 @@ body {
   padding: 14px 16px;
   background: white;
   border-top: 1px solid var(--gray-100);
-  position: sticky;
+  position: fixed;
   bottom: 0;
-  flex-shrink: 0;
+  left: 0;
+  right: 0;
+  max-width: 480px;
+  margin: 0 auto;
+  z-index: 50;
 }
 
 .btn {
