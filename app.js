@@ -151,13 +151,12 @@ const app = {
     const g = document.getElementById('thirdOccupancyGroup');
     if (g) g.style.display = show ? '' : 'none';
 
-    // Hide voice recorder in WKWebView (Drive app) — SpeechRecognition is non-functional there
+    // In Drive (WKWebView), change the mic button behavior to focus the textarea
+    // which brings up the iOS keyboard — the keyboard mic uses system dictation (works perfectly)
     const isWKWebView = !!(window.webkit && window.webkit.messageHandlers);
-    const recorderSection = document.getElementById('voiceRecorderSection');
-    const subtitle = document.getElementById('narrativeSubtitle');
-    if (isWKWebView && recorderSection) {
-      recorderSection.style.display = 'none';
-      if (subtitle) subtitle.textContent = 'Describe what happened in the field below.';
+    const statusEl = document.getElementById('recordStatus');
+    if (isWKWebView && statusEl) {
+      statusEl.textContent = 'Tap to bring up keyboard, then tap 🎤 on keyboard to dictate';
     }
   },
 
@@ -964,13 +963,18 @@ const app = {
 
   startRecording() {
     try {
-      // SpeechRecognition exists in iOS but silently does nothing inside WKWebView (Drive app).
-      // Detect WKWebView by checking for webkit.messageHandlers (only present in native WKWebView).
       const isWKWebView = !!(window.webkit && window.webkit.messageHandlers);
       const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
 
-      if (!SpeechRecognition || isWKWebView) {
-        this.setEl('recordStatus', 'Voice input is not available in the Drive app — please type below');
+      if (isWKWebView || !SpeechRecognition) {
+        // In Drive (WKWebView), focus the textarea to bring up the iOS keyboard.
+        // The mic button on the iOS keyboard triggers system dictation which works perfectly.
+        const textarea = document.getElementById('narrativeText');
+        if (textarea) {
+          textarea.focus();
+          // Place cursor at end
+          textarea.setSelectionRange(textarea.value.length, textarea.value.length);
+        }
         return;
       }
 
