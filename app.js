@@ -299,11 +299,10 @@ const app = {
 
   // ---- 360° Scene Video ----
   captureSceneVideo() {
-    // Use native file input with no capture attribute — iOS shows its own menu
-    // with "Take Video" and "Photo Library" options without any getUserMedia/MediaRecorder
+    // No accept attribute — opens the Files app on iOS (no camera, no crash).
+    // accept="video/*" tells iOS to offer the camera which crashes Drive's WKWebView.
     const input = document.createElement('input');
     input.type = 'file';
-    input.accept = 'video/*';
     input.style.cssText = 'position:fixed;top:-9999px;left:-9999px;opacity:0;';
     input.onchange = (e) => {
       const file = e.target.files[0];
@@ -956,9 +955,13 @@ const app = {
 
   startRecording() {
     try {
+      // SpeechRecognition exists in iOS but silently does nothing inside WKWebView (Drive app).
+      // Detect WKWebView by checking for webkit.messageHandlers (only present in native WKWebView).
+      const isWKWebView = !!(window.webkit && window.webkit.messageHandlers);
       const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
-      if (!SpeechRecognition) {
-        this.setEl('recordStatus', 'Voice recording not supported on this device — please type');
+
+      if (!SpeechRecognition || isWKWebView) {
+        this.setEl('recordStatus', 'Voice input is not available in the Drive app — please type below');
         return;
       }
 
