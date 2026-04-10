@@ -150,6 +150,15 @@ const app = {
     const show = !!this.reportData.answers.thirdParty;
     const g = document.getElementById('thirdOccupancyGroup');
     if (g) g.style.display = show ? '' : 'none';
+
+    // Hide voice recorder in WKWebView (Drive app) — SpeechRecognition is non-functional there
+    const isWKWebView = !!(window.webkit && window.webkit.messageHandlers);
+    const recorderSection = document.getElementById('voiceRecorderSection');
+    const subtitle = document.getElementById('narrativeSubtitle');
+    if (isWKWebView && recorderSection) {
+      recorderSection.style.display = 'none';
+      if (subtitle) subtitle.textContent = 'Describe what happened in the field below.';
+    }
   },
 
   narrativeContinue() {
