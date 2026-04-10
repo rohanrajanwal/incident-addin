@@ -321,6 +321,19 @@ const app = {
   },
 
   _startInAppVideoRecording() {
+    // MediaRecorder with getUserMedia is not supported in iOS WKWebView (Geotab Drive).
+    // Fall back to native file input which shows the iOS camera/video picker.
+    const supportsMediaRecorder = (
+      typeof MediaRecorder !== 'undefined' &&
+      typeof navigator.mediaDevices !== 'undefined' &&
+      typeof navigator.mediaDevices.getUserMedia === 'function'
+    );
+
+    if (!supportsMediaRecorder) {
+      this._videoFallbackInput();
+      return;
+    }
+
     const overlay = document.createElement('div');
     overlay.className = 'video-record-overlay';
     overlay.innerHTML = `
@@ -358,8 +371,10 @@ const app = {
     const indicatorEl = document.getElementById('videoRecordIndicator');
 
     const cleanup = () => {
-      if (mediaRecorder && mediaRecorder.state !== 'inactive') mediaRecorder.stop();
-      if (mediaStream) mediaStream.getTracks().forEach(t => t.stop());
+      try {
+        if (mediaRecorder && mediaRecorder.state !== 'inactive') mediaRecorder.stop();
+        if (mediaStream) mediaStream.getTracks().forEach(t => t.stop());
+      } catch (e) { /* ignore */ }
       overlay.remove();
     };
 
@@ -372,61 +387,84 @@ const app = {
       })
       .catch(err => {
         console.warn('[VideoRecord] Camera access denied:', err);
-        statusEl.textContent = 'Camera access denied — please allow camera in settings';
-        statusEl.style.color = '#ef4444';
-        toggleBtn.disabled = true;
+        overlay.remove();
+        // Fall back to native file input
+        this._videoFallbackInput();
       });
 
     toggleBtn.onclick = () => {
       if (!mediaStream) return;
+      try {
+        if (!isRecordingVideo) {
+          recordedChunks = [];
+          const mimeType = MediaRecorder.isTypeSupported('video/mp4;codecs=avc1')
+            ? 'video/mp4'
+            : MediaRecorder.isTypeSupported('video/webm;codecs=vp9')
+              ? 'video/webm;codecs=vp9'
+              : 'video/webm';
 
-      if (!isRecordingVideo) {
-        // Start recording
-        recordedChunks = [];
-        const mimeType = MediaRecorder.isTypeSupported('video/mp4;codecs=avc1')
-          ? 'video/mp4'
-          : MediaRecorder.isTypeSupported('video/webm;codecs=vp9')
-            ? 'video/webm;codecs=vp9'
-            : 'video/webm';
+          try {
+            mediaRecorder = new MediaRecorder(mediaStream, { mimeType });
+          } catch (e) {
+            mediaRecorder = new MediaRecorder(mediaStream);
+          }
 
-        try {
-          mediaRecorder = new MediaRecorder(mediaStream, { mimeType });
-        } catch (e) {
-          mediaRecorder = new MediaRecorder(mediaStream);
+          mediaRecorder.ondataavailable = e => { if (e.data.size > 0) recordedChunks.push(e.data); };
+          mediaRecorder.onstop = () => {
+            try {
+              const finalMime = mediaRecorder.mimeType || 'video/webm';
+              const blob = new Blob(recordedChunks, { type: finalMime });
+              const ext = finalMime.includes('mp4') ? 'mp4' : 'webm';
+              const fileName = `scene_video_${Date.now()}.${ext}`;
+              this._sceneVideoBlob = blob;
+              this.reportData.sceneVideo = { name: fileName, size: blob.size };
+              document.getElementById('sceneVideoSlot').style.display = 'none';
+              document.getElementById('sceneVideoPreview').style.display = 'flex';
+              this.setEl('sceneVideoName', fileName);
+              if (mediaStream) mediaStream.getTracks().forEach(t => t.stop());
+            } catch (e) { console.warn('[VideoRecord] onstop error:', e); }
+            overlay.remove();
+          };
+
+          mediaRecorder.start(100);
+          isRecordingVideo = true;
+          indicatorEl.style.display = 'flex';
+          toggleBtn.classList.add('recording');
+          labelEl.textContent = 'Stop & Save';
+          statusEl.textContent = 'Recording — walk around the scene slowly';
+        } else {
+          isRecordingVideo = false;
+          statusEl.textContent = 'Processing video…';
+          toggleBtn.disabled = true;
+          mediaRecorder.stop();
         }
-
-        mediaRecorder.ondataavailable = e => { if (e.data.size > 0) recordedChunks.push(e.data); };
-        mediaRecorder.onstop = () => {
-          const finalMime = mediaRecorder.mimeType || 'video/webm';
-          const blob = new Blob(recordedChunks, { type: finalMime });
-          const ext = finalMime.includes('mp4') ? 'mp4' : 'webm';
-          const fileName = `scene_video_${Date.now()}.${ext}`;
-
-          this._sceneVideoBlob = blob;
-          this.reportData.sceneVideo = { name: fileName, size: blob.size };
-          document.getElementById('sceneVideoSlot').style.display = 'none';
-          document.getElementById('sceneVideoPreview').style.display = 'flex';
-          this.setEl('sceneVideoName', fileName);
-
-          if (mediaStream) mediaStream.getTracks().forEach(t => t.stop());
-          overlay.remove();
-        };
-
-        mediaRecorder.start(100);
-        isRecordingVideo = true;
-        indicatorEl.style.display = 'flex';
-        toggleBtn.classList.add('recording');
-        labelEl.textContent = 'Stop & Save';
-        statusEl.textContent = 'Recording — walk around the scene slowly';
-
-      } else {
-        // Stop recording
-        isRecordingVideo = false;
-        statusEl.textContent = 'Processing video…';
-        toggleBtn.disabled = true;
-        mediaRecorder.stop();
+      } catch (e) {
+        console.warn('[VideoRecord] Recording error:', e);
+        cleanup();
+        this._videoFallbackInput();
       }
     };
+  },
+
+  _videoFallbackInput() {
+    const input = document.createElement('input');
+    input.type = 'file';
+    input.accept = 'video/*';
+    input.capture = 'environment';
+    input.style.cssText = 'position:fixed;top:-9999px;left:-9999px;opacity:0;';
+    input.onchange = (e) => {
+      const file = e.target.files[0];
+      if (file) {
+        this._sceneVideoBlob = file;
+        this.reportData.sceneVideo = { name: file.name, size: file.size };
+        document.getElementById('sceneVideoSlot').style.display = 'none';
+        document.getElementById('sceneVideoPreview').style.display = 'flex';
+        this.setEl('sceneVideoName', file.name);
+      }
+      if (input.parentNode) input.parentNode.removeChild(input);
+    };
+    document.body.appendChild(input);
+    input.click();
   },
 
   // ---- Shared capture helpers ----
@@ -523,17 +561,9 @@ const app = {
 
   // ---- Photo Capture ----
   showPhotoMenu(party, index) {
-    const overlay = document.createElement('div');
-    overlay.className = 'photo-menu-overlay';
-    overlay.onclick = (e) => { if (e.target === overlay) overlay.remove(); };
-    overlay.innerHTML = `
-      <div class="photo-menu">
-        <button class="photo-menu-btn" onclick="app.capturePhotoFromCamera('${party}',${index}); this.closest('.photo-menu-overlay').remove();">Take Photo</button>
-        <button class="photo-menu-btn" onclick="app.capturePhotoFromLibrary('${party}',${index}); this.closest('.photo-menu-overlay').remove();">Choose from Photos</button>
-        <button class="photo-menu-cancel" onclick="this.closest('.photo-menu-overlay').remove();">Cancel</button>
-      </div>
-    `;
-    document.body.appendChild(overlay);
+    // Skip the custom overlay menu and use the native iOS file picker directly
+    // This gives "Take Photo" / "Photo Library" / "Browse" in one menu (no double-menu)
+    this._triggerPhotoInput(party, index, false);
   },
 
   capturePhotoFromCamera(party, index) {
@@ -549,17 +579,28 @@ const app = {
     input.type = 'file';
     input.accept = 'image/*';
     if (useCamera) input.capture = 'environment';
+    input.style.cssText = 'position:fixed;top:-9999px;left:-9999px;opacity:0;';
+
     input.onchange = (e) => {
       const file = e.target.files[0];
-      if (!file) return;
-      const reader = new FileReader();
-      reader.onload = () => {
-        const arr = party === 'yours' ? this.reportData.photosYours : this.reportData.photosThird;
-        arr[index] = reader.result;
-        this.renderPhotoSlot(party, index, reader.result);
-      };
-      reader.readAsDataURL(file);
+      if (file) {
+        // Render immediately using a blob URL — works reliably on iOS without large base64 strings
+        const blobUrl = URL.createObjectURL(file);
+        this.renderPhotoSlot(party, index, blobUrl);
+
+        // Read base64 in background for storage/upload
+        const reader = new FileReader();
+        reader.onload = () => {
+          const arr = party === 'yours' ? this.reportData.photosYours : this.reportData.photosThird;
+          arr[index] = reader.result;
+        };
+        reader.readAsDataURL(file);
+      }
+      if (input.parentNode) input.parentNode.removeChild(input);
     };
+
+    // Append to DOM before click — required for iOS WKWebView
+    document.body.appendChild(input);
     input.click();
   },
 
@@ -907,72 +948,76 @@ const app = {
   },
 
   async startRecording() {
-    // Request mic permission first — this triggers the native permission dialog in Drive's webview
     try {
-      const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
-      // Immediately release the stream; SpeechRecognition manages its own access
-      stream.getTracks().forEach(t => t.stop());
-    } catch (err) {
-      console.warn('Microphone permission denied:', err);
-      this.setEl('recordStatus', 'Microphone access denied — please allow microphone in settings');
-      return;
-    }
+      // Check SpeechRecognition support first (not available in iOS WKWebView)
+      const hasSpeechRecognition = ('SpeechRecognition' in window) || ('webkitSpeechRecognition' in window);
+      if (!hasSpeechRecognition) {
+        this.setEl('recordStatus', 'Voice recording not supported on this device — please type');
+        return;
+      }
 
-    if (!('webkitSpeechRecognition' in window) && !('SpeechRecognition' in window)) {
-      this.setEl('recordStatus', 'Voice recording not supported — please type your description');
-      return;
-    }
-
-    const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
-    this.recognition = new SpeechRecognition();
-    this.recognition.continuous = true;
-    this.recognition.interimResults = true;
-    this.recognition.lang = 'en-US';
-
-    let finalTranscript = document.getElementById('narrativeText').value;
-
-    this.recognition.onresult = (event) => {
-      let interim = '';
-      for (let i = event.resultIndex; i < event.results.length; i++) {
-        if (event.results[i].isFinal) {
-          finalTranscript += event.results[i][0].transcript + ' ';
-        } else {
-          interim += event.results[i][0].transcript;
+      // Request mic permission via getUserMedia if available (triggers native dialog)
+      if (navigator.mediaDevices && navigator.mediaDevices.getUserMedia) {
+        try {
+          const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+          stream.getTracks().forEach(t => t.stop());
+        } catch (err) {
+          console.warn('Microphone permission denied:', err);
+          this.setEl('recordStatus', 'Microphone access denied — please allow in settings');
+          return;
         }
       }
-      document.getElementById('narrativeText').value = finalTranscript + interim;
-    };
 
-    this.recognition.onerror = (event) => {
-      console.warn('Speech recognition error:', event.error);
-      if (event.error === 'not-allowed') {
-        this.setEl('recordStatus', 'Microphone access denied — please allow microphone in settings');
-      } else if (event.error === 'no-speech') {
-        this.setEl('recordStatus', 'No speech detected — tap to try again');
-      } else {
-        this.setEl('recordStatus', 'Recording error — tap to try again');
-      }
-      this.stopRecording();
-    };
+      const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
+      this.recognition = new SpeechRecognition();
+      this.recognition.continuous = true;
+      this.recognition.interimResults = true;
+      this.recognition.lang = 'en-US';
 
-    this.recognition.onend = () => {
-      // Auto-restart if still in recording state (some browsers stop after a pause)
-      if (this.isRecording) {
-        try { this.recognition.start(); } catch (e) { /* already started */ }
-      }
-    };
+      let finalTranscript = document.getElementById('narrativeText').value;
 
-    try {
+      this.recognition.onresult = (event) => {
+        try {
+          let interim = '';
+          for (let i = event.resultIndex; i < event.results.length; i++) {
+            if (event.results[i].isFinal) {
+              finalTranscript += event.results[i][0].transcript + ' ';
+            } else {
+              interim += event.results[i][0].transcript;
+            }
+          }
+          document.getElementById('narrativeText').value = finalTranscript + interim;
+        } catch (e) { console.warn('SpeechRecognition onresult error:', e); }
+      };
+
+      this.recognition.onerror = (event) => {
+        console.warn('Speech recognition error:', event.error);
+        if (event.error === 'not-allowed') {
+          this.setEl('recordStatus', 'Microphone access denied — please allow in settings');
+        } else if (event.error === 'no-speech') {
+          this.setEl('recordStatus', 'No speech detected — tap to try again');
+        } else {
+          this.setEl('recordStatus', 'Recording error — tap to try again');
+        }
+        this.stopRecording();
+      };
+
+      this.recognition.onend = () => {
+        if (this.isRecording) {
+          try { this.recognition.start(); } catch (e) { /* already restarting */ }
+        }
+      };
+
       this.recognition.start();
-    } catch (e) {
-      console.warn('SpeechRecognition start failed:', e);
-      this.setEl('recordStatus', 'Could not start recording — tap to try again');
-      return;
-    }
+      this.isRecording = true;
+      document.getElementById('recordBtn').classList.add('recording');
+      this.setEl('recordStatus', 'Recording... Tap to stop');
 
-    this.isRecording = true;
-    document.getElementById('recordBtn').classList.add('recording');
-    this.setEl('recordStatus', 'Recording... Tap to stop');
+    } catch (e) {
+      console.warn('startRecording failed:', e);
+      this.isRecording = false;
+      this.setEl('recordStatus', 'Could not start recording — please type your description');
+    }
   },
 
   stopRecording() {

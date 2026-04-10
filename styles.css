@@ -707,6 +707,7 @@ body {
   cursor: pointer;
   transition: all var(--transition);
   background: white;
+  color: var(--text-primary);
   font-weight: 500;
 }
 
