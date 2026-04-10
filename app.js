@@ -299,18 +299,25 @@ const app = {
 
   // ---- 360° Scene Video ----
   captureSceneVideo() {
-    this._showVideoMenu(
-      () => this._startInAppVideoRecording(),
-      () => {
-        this._videoInput(false, (file) => {
-          this._sceneVideoBlob = file;
-          this.reportData.sceneVideo = { name: file.name, size: file.size };
-          document.getElementById('sceneVideoSlot').style.display = 'none';
-          document.getElementById('sceneVideoPreview').style.display = 'flex';
-          this.setEl('sceneVideoName', file.name);
-        });
+    // Use native file input with no capture attribute — iOS shows its own menu
+    // with "Take Video" and "Photo Library" options without any getUserMedia/MediaRecorder
+    const input = document.createElement('input');
+    input.type = 'file';
+    input.accept = 'video/*';
+    input.style.cssText = 'position:fixed;top:-9999px;left:-9999px;opacity:0;';
+    input.onchange = (e) => {
+      const file = e.target.files[0];
+      if (file) {
+        this._sceneVideoBlob = file;
+        this.reportData.sceneVideo = { name: file.name, size: file.size };
+        document.getElementById('sceneVideoSlot').style.display = 'none';
+        document.getElementById('sceneVideoPreview').style.display = 'flex';
+        this.setEl('sceneVideoName', file.name);
       }
-    );
+      if (input.parentNode) input.parentNode.removeChild(input);
+    };
+    document.body.appendChild(input);
+    input.click();
   },
 
   removeSceneVideo() {
@@ -943,32 +950,18 @@ const app = {
     if (this.isRecording) {
       this.stopRecording();
     } else {
-      this.startRecording(); // async, intentionally not awaited
+      this.startRecording();
     }
   },
 
-  async startRecording() {
+  startRecording() {
     try {
-      // Check SpeechRecognition support first (not available in iOS WKWebView)
-      const hasSpeechRecognition = ('SpeechRecognition' in window) || ('webkitSpeechRecognition' in window);
-      if (!hasSpeechRecognition) {
+      const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
+      if (!SpeechRecognition) {
         this.setEl('recordStatus', 'Voice recording not supported on this device — please type');
         return;
       }
 
-      // Request mic permission via getUserMedia if available (triggers native dialog)
-      if (navigator.mediaDevices && navigator.mediaDevices.getUserMedia) {
-        try {
-          const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
-          stream.getTracks().forEach(t => t.stop());
-        } catch (err) {
-          console.warn('Microphone permission denied:', err);
-          this.setEl('recordStatus', 'Microphone access denied — please allow in settings');
-          return;
-        }
-      }
-
-      const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
       this.recognition = new SpeechRecognition();
       this.recognition.continuous = true;
       this.recognition.interimResults = true;
