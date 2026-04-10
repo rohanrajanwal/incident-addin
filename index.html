@@ -11,62 +11,7 @@
   <!-- Offline Banner -->
   <div class="offline-banner" id="offlineBanner">You are offline — data will be saved locally</div>
 
-  <!-- ==================== SCREEN 1: Dashboard ==================== -->
-  <div class="screen" id="screen-dashboard">
-    <div class="alert-banner">
-      <button class="close-btn">&times;</button>
-      <div class="alert-header">
-        <svg class="alert-triangle" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg>
-        <h3>Collision detected</h3>
-      </div>
-      <p>A collision has been detected by the system. Please report this incident to provide details about what happened.</p>
-      <a class="alert-link" onclick="app.goTo('incidents')">Report incident</a>
-    </div>
-
-    <div class="card" onclick="app.goTo('incidents')">
-      <div class="card-header">
-        <div class="card-icon safety">
-          <svg viewBox="0 0 24 24" stroke-linecap="round" stroke-linejoin="round"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/></svg>
-        </div>
-        <h3>Safety</h3>
-      </div>
-    </div>
-    <div class="card">
-      <div class="card-header">
-        <div class="card-icon app-proxy">
-          <svg viewBox="0 0 24 24" stroke-linecap="round" stroke-linejoin="round"><rect x="5" y="2" width="14" height="20" rx="2" ry="2"/><line x1="12" y1="18" x2="12.01" y2="18"/></svg>
-        </div>
-        <h3>App Proxy Mobile</h3>
-      </div>
-    </div>
-    <div class="card">
-      <div class="card-header">
-        <div class="card-icon authority">
-          <svg viewBox="0 0 24 24" stroke-linecap="round" stroke-linejoin="round"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg>
-        </div>
-        <h3>Authority Switcher</h3>
-      </div>
-    </div>
-    <div class="card">
-      <div class="card-header">
-        <div class="card-icon brightmile">
-          <svg viewBox="0 0 24 24" stroke-linecap="round" stroke-linejoin="round"><path d="M9 18h6"/><path d="M10 22h4"/><path d="M12 2v1"/><path d="M12 7a5 5 0 0 1 5 5c0 2.76-2.5 5-5 7-2.5-2-5-4.24-5-7a5 5 0 0 1 5-5z"/></svg>
-        </div>
-        <h3>Brightmile</h3>
-      </div>
-    </div>
-    <div class="card" onclick="app.goTo('incidents')">
-      <div class="card-header">
-        <div class="card-icon collision">
-          <svg viewBox="0 0 24 24" stroke-linecap="round" stroke-linejoin="round"><path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg>
-        </div>
-        <h3>Incident Reporting</h3>
-      </div>
-    </div>
-
-  </div>
-
-  <!-- ==================== SCREEN 2: Incidents List ==================== -->
+  <!-- ==================== SCREEN 1: Incidents List ==================== -->
   <div class="screen active" id="screen-incidents">
     <h2 class="section-title">Current Incidents</h2>
     <p class="section-subtitle">Reports that are in progress</p>

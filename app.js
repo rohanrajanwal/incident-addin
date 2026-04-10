@@ -5,7 +5,7 @@
 
 const app = {
   // State
-  currentScreen: 'dashboard',
+  currentScreen: 'incidents',
   api: null,
   state: null,
   reportData: {
@@ -32,6 +32,7 @@ const app = {
   },
   isRecording: false,
   recognition: null,
+  _sceneVideoBlob: null,
 
   // ---- Geotab Add-in Lifecycle ----
   initializeAddin() {
@@ -95,7 +96,6 @@ const app = {
 
   updateHeader(screenId) {
     const titles = {
-      'dashboard': 'Dashboard',
       'incidents': 'Incidents',
       'safety': 'Incident Reporting',
       'communication': 'Incident Reporting',
@@ -299,19 +299,134 @@ const app = {
 
   // ---- 360° Scene Video ----
   captureSceneVideo() {
-    const onFile = (file) => {
-      this.reportData.sceneVideo = { name: file.name, size: file.size };
-      document.getElementById('sceneVideoSlot').style.display = 'none';
-      document.getElementById('sceneVideoPreview').style.display = 'flex';
-      this.setEl('sceneVideoName', file.name);
-    };
-    this._videoInput(false, onFile);
+    this._showVideoMenu(
+      () => this._startInAppVideoRecording(),
+      () => {
+        this._videoInput(false, (file) => {
+          this._sceneVideoBlob = file;
+          this.reportData.sceneVideo = { name: file.name, size: file.size };
+          document.getElementById('sceneVideoSlot').style.display = 'none';
+          document.getElementById('sceneVideoPreview').style.display = 'flex';
+          this.setEl('sceneVideoName', file.name);
+        });
+      }
+    );
   },
 
   removeSceneVideo() {
     this.reportData.sceneVideo = null;
+    this._sceneVideoBlob = null;
     document.getElementById('sceneVideoSlot').style.display = '';
     document.getElementById('sceneVideoPreview').style.display = 'none';
+  },
+
+  _startInAppVideoRecording() {
+    const overlay = document.createElement('div');
+    overlay.className = 'video-record-overlay';
+    overlay.innerHTML = `
+      <div class="video-record-modal">
+        <div class="video-record-header">
+          <span>360° Scene Video</span>
+          <button class="video-record-close" id="videoCloseBtn">&times;</button>
+        </div>
+        <div class="video-preview-container">
+          <video id="videoPreviewStream" autoplay muted playsinline></video>
+          <div class="video-record-indicator" id="videoRecordIndicator" style="display:none">
+            <span class="video-rec-dot"></span> REC
+          </div>
+        </div>
+        <div class="video-record-controls">
+          <p id="videoRecordStatus" class="video-record-status">Position camera for a 360° walkthrough</p>
+          <button class="video-rec-btn" id="videoRecordToggle">
+            <span class="video-rec-icon"></span>
+            <span id="videoRecordLabel">Start Recording</span>
+          </button>
+        </div>
+      </div>
+    `;
+    document.body.appendChild(overlay);
+
+    let mediaStream = null;
+    let mediaRecorder = null;
+    let recordedChunks = [];
+    let isRecordingVideo = false;
+
+    const videoEl = document.getElementById('videoPreviewStream');
+    const statusEl = document.getElementById('videoRecordStatus');
+    const toggleBtn = document.getElementById('videoRecordToggle');
+    const labelEl = document.getElementById('videoRecordLabel');
+    const indicatorEl = document.getElementById('videoRecordIndicator');
+
+    const cleanup = () => {
+      if (mediaRecorder && mediaRecorder.state !== 'inactive') mediaRecorder.stop();
+      if (mediaStream) mediaStream.getTracks().forEach(t => t.stop());
+      overlay.remove();
+    };
+
+    document.getElementById('videoCloseBtn').onclick = cleanup;
+
+    navigator.mediaDevices.getUserMedia({ video: { facingMode: 'environment' }, audio: true })
+      .then(stream => {
+        mediaStream = stream;
+        videoEl.srcObject = stream;
+      })
+      .catch(err => {
+        console.warn('[VideoRecord] Camera access denied:', err);
+        statusEl.textContent = 'Camera access denied — please allow camera in settings';
+        statusEl.style.color = '#ef4444';
+        toggleBtn.disabled = true;
+      });
+
+    toggleBtn.onclick = () => {
+      if (!mediaStream) return;
+
+      if (!isRecordingVideo) {
+        // Start recording
+        recordedChunks = [];
+        const mimeType = MediaRecorder.isTypeSupported('video/mp4;codecs=avc1')
+          ? 'video/mp4'
+          : MediaRecorder.isTypeSupported('video/webm;codecs=vp9')
+            ? 'video/webm;codecs=vp9'
+            : 'video/webm';
+
+        try {
+          mediaRecorder = new MediaRecorder(mediaStream, { mimeType });
+        } catch (e) {
+          mediaRecorder = new MediaRecorder(mediaStream);
+        }
+
+        mediaRecorder.ondataavailable = e => { if (e.data.size > 0) recordedChunks.push(e.data); };
+        mediaRecorder.onstop = () => {
+          const finalMime = mediaRecorder.mimeType || 'video/webm';
+          const blob = new Blob(recordedChunks, { type: finalMime });
+          const ext = finalMime.includes('mp4') ? 'mp4' : 'webm';
+          const fileName = `scene_video_${Date.now()}.${ext}`;
+
+          this._sceneVideoBlob = blob;
+          this.reportData.sceneVideo = { name: fileName, size: blob.size };
+          document.getElementById('sceneVideoSlot').style.display = 'none';
+          document.getElementById('sceneVideoPreview').style.display = 'flex';
+          this.setEl('sceneVideoName', fileName);
+
+          if (mediaStream) mediaStream.getTracks().forEach(t => t.stop());
+          overlay.remove();
+        };
+
+        mediaRecorder.start(100);
+        isRecordingVideo = true;
+        indicatorEl.style.display = 'flex';
+        toggleBtn.classList.add('recording');
+        labelEl.textContent = 'Stop & Save';
+        statusEl.textContent = 'Recording — walk around the scene slowly';
+
+      } else {
+        // Stop recording
+        isRecordingVideo = false;
+        statusEl.textContent = 'Processing video…';
+        toggleBtn.disabled = true;
+        mediaRecorder.stop();
+      }
+    };
   },
 
   // ---- Shared capture helpers ----
@@ -787,13 +902,24 @@ const app = {
     if (this.isRecording) {
       this.stopRecording();
     } else {
-      this.startRecording();
+      this.startRecording(); // async, intentionally not awaited
     }
   },
 
-  startRecording() {
+  async startRecording() {
+    // Request mic permission first — this triggers the native permission dialog in Drive's webview
+    try {
+      const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+      // Immediately release the stream; SpeechRecognition manages its own access
+      stream.getTracks().forEach(t => t.stop());
+    } catch (err) {
+      console.warn('Microphone permission denied:', err);
+      this.setEl('recordStatus', 'Microphone access denied — please allow microphone in settings');
+      return;
+    }
+
     if (!('webkitSpeechRecognition' in window) && !('SpeechRecognition' in window)) {
-      alert('Voice recording is not supported in this browser. Please type your description.');
+      this.setEl('recordStatus', 'Voice recording not supported — please type your description');
       return;
     }
 
@@ -819,10 +945,31 @@ const app = {
 
     this.recognition.onerror = (event) => {
       console.warn('Speech recognition error:', event.error);
+      if (event.error === 'not-allowed') {
+        this.setEl('recordStatus', 'Microphone access denied — please allow microphone in settings');
+      } else if (event.error === 'no-speech') {
+        this.setEl('recordStatus', 'No speech detected — tap to try again');
+      } else {
+        this.setEl('recordStatus', 'Recording error — tap to try again');
+      }
       this.stopRecording();
     };
 
-    this.recognition.start();
+    this.recognition.onend = () => {
+      // Auto-restart if still in recording state (some browsers stop after a pause)
+      if (this.isRecording) {
+        try { this.recognition.start(); } catch (e) { /* already started */ }
+      }
+    };
+
+    try {
+      this.recognition.start();
+    } catch (e) {
+      console.warn('SpeechRecognition start failed:', e);
+      this.setEl('recordStatus', 'Could not start recording — tap to try again');
+      return;
+    }
+
     this.isRecording = true;
     document.getElementById('recordBtn').classList.add('recording');
     this.setEl('recordStatus', 'Recording... Tap to stop');
@@ -1010,7 +1157,7 @@ const app = {
       this.reportData.propertyDamageInfo.photo  && { data: this.reportData.propertyDamageInfo.photo,     name: 'Property Damage Photo' },
     ].filter(Boolean);
 
-    // 3. Upload each file as MediaFile
+    // 3. Upload each file as MediaFile (photos + documents)
     const mediaFileIds = [];
     for (let i = 0; i < uploads.length; i++) {
       const item = uploads[i];
@@ -1026,9 +1173,24 @@ const app = {
       }
     }
 
-    // 4. Save full structured report as AddInData (this is the "comment" on the event)
+    // 3b. Upload scene video blob if captured
+    if (this.reportData.sceneVideo && this._sceneVideoBlob) {
+      this.setEl('submitStatus', 'Uploading scene video…');
+      try {
+        const id = await this.uploadVideoFile(
+          this._sceneVideoBlob, this.reportData.sceneVideo.name,
+          deviceId, driverId, dateTime, exceptionEventId, server, credentials
+        );
+        if (id) mediaFileIds.push({ id, name: this.reportData.sceneVideo.name });
+      } catch (e) {
+        console.warn('[Submit] Scene video upload failed:', e);
+      }
+    }
+
+    // 4. Save full structured report as AddInData
     this.setEl('submitStatus', 'Saving report…');
     const d = this.reportData;
+    const reportText = this.formatReportText();
     await this.api.call('Add', {
       typeName: 'AddInData',
       entity: {
@@ -1039,7 +1201,7 @@ const app = {
           device: { id: deviceId, name: this.state.device.name },
           driver: driverId ? { id: driverId, name: this.state.driver.name } : null,
           mediaFileIds,
-          reportText: this.formatReportText(),
+          reportText,
           incident: {
             answers: d.answers,
             narrative: d.narrative,
@@ -1061,6 +1223,23 @@ const app = {
         }
       }
     });
+
+    // 5. Add report text as a comment on the ExceptionEvent so it's visible in the Geotab UI
+    if (exceptionEventId) {
+      this.setEl('submitStatus', 'Adding comment to exception…');
+      try {
+        await this.api.call('Set', {
+          typeName: 'ExceptionEvent',
+          entity: {
+            id: exceptionEventId,
+            comment: reportText
+          }
+        });
+      } catch (e) {
+        // comment field may not be writable on all server versions — non-fatal
+        console.warn('[Submit] Could not set ExceptionEvent comment:', e);
+      }
+    }
   },
 
   // ---- Submission helpers ----
@@ -1135,6 +1314,44 @@ const app = {
       );
     } catch (e) {
       console.warn('[Submit] Binary upload failed (entity record still saved):', e);
+    }
+
+    return entityId;
+  },
+
+  async uploadVideoFile(blob, name, deviceId, driverId, dateTime, exceptionEventId, server, credentials) {
+    // Create the MediaFile entity record for a video
+    const entityId = await this.api.call('Add', {
+      typeName: 'MediaFile',
+      entity: {
+        device: { id: deviceId },
+        ...(driverId ? { driver: { id: driverId } } : {}),
+        fromDate: dateTime,
+        toDate: dateTime,
+        mediaType: 'Video',
+        name: name,
+        solutionId: 'IncidentReport',
+        metaData: exceptionEventId ? { exceptionEventId } : {}
+      }
+    });
+
+    if (!entityId || !credentials || !server) {
+      console.warn('[Submit] Skipping video binary upload — missing credentials or server');
+      return entityId;
+    }
+
+    try {
+      const formData = new FormData();
+      formData.append('file', blob, name);
+
+      const credStr = encodeURIComponent(JSON.stringify(credentials));
+      const mediaStr = encodeURIComponent(JSON.stringify({ id: entityId }));
+      await fetch(
+        `https://${server}/apiv1/UploadMediaFile?credentials=${credStr}&mediaFile=${mediaStr}`,
+        { method: 'POST', body: formData }
+      );
+    } catch (e) {
+      console.warn('[Submit] Video binary upload failed (entity record still saved):', e);
     }
 
     return entityId;
