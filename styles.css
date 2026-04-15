@@ -682,8 +682,10 @@ body {
   transition: fill var(--transition);
 }
 
-.damage-zone:hover {
-  fill: #ffcdd2;
+@media (hover: hover) {
+  .damage-zone:hover {
+    fill: #ffcdd2;
+  }
 }
 
 .damage-zone.selected {
