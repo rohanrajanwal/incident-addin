@@ -851,19 +851,12 @@
 
     <div class="button-footer">
       <button class="btn btn-secondary" onclick="app.goTo('police-report')">Back</button>
-      <button class="btn btn-primary" onclick="app.goTo('context')">Continue</button>
+      <button class="btn btn-primary" onclick="app.goTo('review')">Continue</button>
     </div>
   </div>
 
   <!-- ==================== SCREEN 16: Contextual Info ==================== -->
   <div class="screen" id="screen-context">
-    <div class="progress-bar">
-      <div class="progress-icon">
-        <svg viewBox="0 0 24 24" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><line x1="12" y1="16" x2="12" y2="12"/><line x1="12" y1="8" x2="12.01" y2="8"/></svg>
-      </div>
-      <span>85% Complete</span>
-    </div>
-
     <h2 class="section-title">Contextual Information</h2>
     <p class="section-subtitle">Automatically gathered from GPS and external data sources. <span class="ai-badge">Auto-filled</span></p>
 
@@ -901,8 +894,7 @@
     </div>
 
     <div class="button-footer">
-      <button class="btn btn-secondary" onclick="app.goTo('property-damage')">Back</button>
-      <button class="btn btn-primary" onclick="app.goTo('review')">Continue</button>
+      <button class="btn btn-primary" onclick="app.goTo('review')">Back to Review</button>
     </div>
   </div>
 
@@ -983,7 +975,7 @@
     </div>
 
     <div class="review-section">
-      <h3><svg viewBox="0 0 24 24" stroke-linecap="round" stroke-linejoin="round"><path d="M18 10h-1.26A8 8 0 1 0 9 20h9a5 5 0 0 0 0-10z"/></svg> Conditions</h3>
+      <h3><svg viewBox="0 0 24 24" stroke-linecap="round" stroke-linejoin="round"><path d="M18 10h-1.26A8 8 0 1 0 9 20h9a5 5 0 0 0 0-10z"/></svg> Conditions <a class="review-edit-link" onclick="app.editFromReview('context')">View</a></h3>
       <div class="review-row">
         <span class="label">Weather</span>
         <span class="value"><span class="verified-icon">&#x2714;</span> <span id="revWeather">Clear, 72&deg;F</span></span>
@@ -1070,7 +1062,7 @@
 
     <p id="submitStatus" style="display:none;font-size:13px;color:var(--text-secondary);text-align:center;margin:0 16px 4px;line-height:1.4"></p>
     <div class="button-footer">
-      <button class="btn btn-secondary" onclick="app.goTo('context')">Back</button>
+      <button class="btn btn-secondary" onclick="app.goTo('property-damage')">Back</button>
       <button class="btn btn-success" onclick="app.submitReport()">Submit Report</button>
     </div>
   </div>
