@@ -30,8 +30,6 @@ const app = {
     aiResults: null,
     corrections: []
   },
-  isRecording: false,
-  recognition: null,
   _sceneVideoBlob: null,
 
   // ---- Geotab Add-in Lifecycle ----
@@ -150,14 +148,6 @@ const app = {
     const show = !!this.reportData.answers.thirdParty;
     const g = document.getElementById('thirdOccupancyGroup');
     if (g) g.style.display = show ? '' : 'none';
-
-    // In Drive (WKWebView), change the mic button behavior to focus the textarea
-    // which brings up the iOS keyboard — the keyboard mic uses system dictation (works perfectly)
-    const isWKWebView = !!(window.webkit && window.webkit.messageHandlers);
-    const statusEl = document.getElementById('recordStatus');
-    if (isWKWebView && statusEl) {
-      statusEl.textContent = 'Tap to bring up keyboard, then tap 🎤 on keyboard to dictate';
-    }
   },
 
   narrativeContinue() {
@@ -950,93 +940,6 @@ const app = {
       el.className = 'confidence-badge low';
       el.innerHTML = `&#x26A0; ${pct}%`;
     }
-  },
-
-  // ---- Voice Recording ----
-  toggleRecording() {
-    if (this.isRecording) {
-      this.stopRecording();
-    } else {
-      this.startRecording();
-    }
-  },
-
-  startRecording() {
-    try {
-      const isWKWebView = !!(window.webkit && window.webkit.messageHandlers);
-      const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
-
-      if (isWKWebView || !SpeechRecognition) {
-        // In Drive (WKWebView), focus the textarea to bring up the iOS keyboard.
-        // The mic button on the iOS keyboard triggers system dictation which works perfectly.
-        const textarea = document.getElementById('narrativeText');
-        if (textarea) {
-          textarea.focus();
-          // Place cursor at end
-          textarea.setSelectionRange(textarea.value.length, textarea.value.length);
-        }
-        return;
-      }
-
-      this.recognition = new SpeechRecognition();
-      this.recognition.continuous = true;
-      this.recognition.interimResults = true;
-      this.recognition.lang = 'en-US';
-
-      let finalTranscript = document.getElementById('narrativeText').value;
-
-      this.recognition.onresult = (event) => {
-        try {
-          let interim = '';
-          for (let i = event.resultIndex; i < event.results.length; i++) {
-            if (event.results[i].isFinal) {
-              finalTranscript += event.results[i][0].transcript + ' ';
-            } else {
-              interim += event.results[i][0].transcript;
-            }
-          }
-          document.getElementById('narrativeText').value = finalTranscript + interim;
-        } catch (e) { console.warn('SpeechRecognition onresult error:', e); }
-      };
-
-      this.recognition.onerror = (event) => {
-        console.warn('Speech recognition error:', event.error);
-        if (event.error === 'not-allowed') {
-          this.setEl('recordStatus', 'Microphone access denied — please allow in settings');
-        } else if (event.error === 'no-speech') {
-          this.setEl('recordStatus', 'No speech detected — tap to try again');
-        } else {
-          this.setEl('recordStatus', 'Recording error — tap to try again');
-        }
-        this.stopRecording();
-      };
-
-      this.recognition.onend = () => {
-        if (this.isRecording) {
-          try { this.recognition.start(); } catch (e) { /* already restarting */ }
-        }
-      };
-
-      this.recognition.start();
-      this.isRecording = true;
-      document.getElementById('recordBtn').classList.add('recording');
-      this.setEl('recordStatus', 'Recording... Tap to stop');
-
-    } catch (e) {
-      console.warn('startRecording failed:', e);
-      this.isRecording = false;
-      this.setEl('recordStatus', 'Could not start recording — please type your description');
-    }
-  },
-
-  stopRecording() {
-    if (this.recognition) {
-      this.recognition.stop();
-    }
-    this.isRecording = false;
-    document.getElementById('recordBtn').classList.remove('recording');
-    this.setEl('recordStatus', 'Tap to start recording');
-    this.reportData.narrative = document.getElementById('narrativeText').value;
   },
 
   // ---- Telemetry & Context ----
